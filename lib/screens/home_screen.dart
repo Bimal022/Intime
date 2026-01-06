@@ -21,44 +21,33 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_index],
-      bottomNavigationBar: BottomNav(
-        currentIndex: _index,
-        onTap: (value) {
-          setState(() => _index = value);
-        },
-      ),
-    );
+    return Scaffold(body: _screens[_index]);
   }
 }
+
 class AttendanceScreen extends StatelessWidget {
   const AttendanceScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Face Attendance Camera'),
-    );
+    return const Center(child: Text('Face Attendance Camera'));
   }
 }
+
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Admin Panel'),
-    );
+    return const Center(child: Text('Admin Panel'));
   }
 }
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Profile'),
-    );
+    return const Center(child: Text('Profile'));
   }
 }
