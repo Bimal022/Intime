@@ -95,9 +95,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _faceDetected = faces.isNotEmpty;
         _faceCount = faces.length;
         if (faces.isEmpty) {
-          _errorMessage = 'No face detected. Please position your face in the frame.';
+          _errorMessage =
+              'No face detected. Please position your face in the frame.';
         } else if (faces.length > 1) {
-          _errorMessage = 'Multiple faces detected. Please ensure only one person is in frame.';
+          _errorMessage =
+              'Multiple faces detected. Please ensure only one person is in frame.';
         }
       });
     } catch (e) {
@@ -114,7 +116,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (!_faceDetected || _faceCount != 1) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please detect exactly one face before marking attendance'),
+          content: Text(
+            'Please detect exactly one face before marking attendance',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -151,7 +155,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
 
@@ -196,8 +202,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       body: _errorMessage != null && _cameraController == null
           ? _buildErrorView()
           : _cameraController == null || !_cameraController!.value.isInitialized
-              ? const Center(child: CircularProgressIndicator())
-              : _buildCameraView(),
+          ? const Center(child: CircularProgressIndicator())
+          : _buildCameraView(),
     );
   }
 
@@ -248,7 +254,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         child: CameraPreview(_cameraController!),
                       ),
                     ),
-                    
+
                     // Face detection overlay
                     Center(
                       child: Container(
@@ -273,7 +279,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           mini: true,
                           onPressed: _isLoading ? null : _switchCamera,
                           backgroundColor: Colors.white.withOpacity(0.9),
-                          child: const Icon(Icons.flip_camera_ios, color: Colors.black),
+                          child: const Icon(
+                            Icons.flip_camera_ios,
+                            color: Colors.black,
+                          ),
                         ),
                       ),
 
@@ -318,7 +327,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 children: [
                   // Status indicator
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: _faceDetected ? Colors.green[50] : Colors.red[50],
                       borderRadius: BorderRadius.circular(12),
@@ -341,7 +353,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               ? 'Face Detected ($_faceCount face${_faceCount > 1 ? 's' : ''})'
                               : 'No Face Detected',
                           style: TextStyle(
-                            color: _faceDetected ? Colors.green[900] : Colors.red[900],
+                            color: _faceDetected
+                                ? Colors.green[900]
+                                : Colors.red[900],
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -361,12 +375,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
+                          Icon(
+                            Icons.warning_amber,
+                            color: Colors.orange[700],
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: TextStyle(color: Colors.orange[900], fontSize: 13),
+                              style: TextStyle(
+                                color: Colors.orange[900],
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -381,18 +402,27 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _detecting || _isLoading ? null : _detectFace,
+                          onPressed: _detecting || _isLoading
+                              ? null
+                              : _detectFace,
                           icon: _detecting
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Icon(Icons.face_retouching_natural),
-                          label: Text(_detecting ? 'Detecting...' : 'Detect Face'),
+                          label: Text(
+                            _detecting ? 'Detecting...' : 'Detect Face',
+                          ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(color: Colors.blue[700]!, width: 2),
+                            side: BorderSide(
+                              color: Colors.blue[700]!,
+                              width: 2,
+                            ),
                             foregroundColor: Colors.blue[700],
                           ),
                         ),
@@ -400,7 +430,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _faceDetected && !_isLoading && _faceCount == 1
+                          onPressed:
+                              _faceDetected && !_isLoading && _faceCount == 1
                               ? _markAttendance
                               : null,
                           icon: _isLoading
@@ -413,7 +444,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   ),
                                 )
                               : const Icon(Icons.check),
-                          label: Text(_isLoading ? 'Marking...' : 'Mark Attendance'),
+                          label: Text(
+                            _isLoading ? 'Marking...' : 'Mark Attendance',
+                          ),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             backgroundColor: Colors.blue[700],

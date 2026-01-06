@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 
 class RegisterEmployeeScreen extends StatefulWidget {
   const RegisterEmployeeScreen({super.key});
@@ -33,6 +35,20 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
     }
   }
 
+  Future<String> _saveImageLocally(File image, String empId) async {
+    final dir = await getApplicationDocumentsDirectory();
+    final empDir = Directory('${dir.path}/employees/$empId');
+
+    if (!empDir.existsSync()) {
+      empDir.createSync(recursive: true);
+    }
+
+    final filePath = path.join(empDir.path, 'face_1.jpg');
+
+    await image.copy(filePath);
+    return filePath;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || _image == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -52,18 +68,23 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
 
     try {
       // 1 Upload image
-      final ref = FirebaseStorage.instance.ref(
-        'employees/${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
+      // final ref = FirebaseStorage.instance.ref(
+      //   'employees/${DateTime.now().millisecondsSinceEpoch}.jpg',
+      // );
 
-      await ref.putFile(_image!);
-      final imageUrl = await ref.getDownloadURL();
+      // await ref.putFile(_image!);
+      // final imageUrl = await ref.getDownloadURL();
 
       // 2 Save Firestore data
-      await FirebaseFirestore.instance.collection('employees').add({
+      final empRef = FirebaseFirestore.instance.collection('employees').doc();
+
+      final localPath = await _saveImageLocally(_image!, empRef.id);
+
+      await empRef.set({
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'imageUrl': imageUrl,
+        'localFacePath': localPath,
+        'faceCount': 1,
         'createdAt': FieldValue.serverTimestamp(),
       });
 

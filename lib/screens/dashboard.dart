@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intime/screens/attendance.dart';
 import 'package:intime/screens/register_employee.dart';
+import 'package:intime/screens/report.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -174,9 +175,11 @@ class DashboardScreen extends StatelessWidget {
                       colors: [Colors.orange.shade400, Colors.orange.shade600],
                     ),
                     onTap: () {
-                      // Add navigation to reports screen
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Reports coming soon!')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ReportsScreen(),
+                        ),
                       );
                     },
                   ),
