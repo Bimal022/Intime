@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:intime/screens/register_employee.dart';
+
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -12,12 +14,9 @@ class DashboardScreen extends StatelessWidget {
           children: [
             const Text(
               'Intime',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
-            
+
             const SizedBox(height: 20),
 
             Row(
@@ -52,7 +51,14 @@ class DashboardScreen extends StatelessWidget {
             _actionTile(
               icon: Icons.person_add,
               title: 'Register Employee',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RegisterEmployeeScreen(),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -71,12 +77,7 @@ class DashboardScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 8,
-              color: Colors.black12,
-            ),
-          ],
+          boxShadow: [BoxShadow(blurRadius: 8, color: Colors.black12)],
         ),
         child: Column(
           children: [
@@ -86,10 +87,7 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ],
         ),
