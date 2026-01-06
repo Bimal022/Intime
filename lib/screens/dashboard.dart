@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intime/screens/attendance.dart';
 import 'package:intime/screens/register_employee.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -46,7 +47,12 @@ class DashboardScreen extends StatelessWidget {
             _actionTile(
               icon: Icons.camera_alt,
               title: 'Mark Attendance',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+                );
+              },
             ),
             _actionTile(
               icon: Icons.person_add,
