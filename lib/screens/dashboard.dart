@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intime/screens/attendance.dart';
+import 'package:intime/screens/attendance_face_recognition.dart';
 import 'package:intime/screens/register_employee.dart';
 
 class DashboardScreen extends StatefulWidget {

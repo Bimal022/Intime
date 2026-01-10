@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
 import 'package:intime/screens/dashboard.dart';
-import 'package:intime/screens/attendance.dart';
+import 'package:intime/screens/attendance_face_recognition.dart';
 import 'package:intime/screens/employee_list.dart';
 import 'package:intime/screens/report.dart';
 
