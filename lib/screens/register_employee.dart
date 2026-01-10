@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import '../services/cloudinary_service.dart';
 
 class RegisterEmployeeScreen extends StatefulWidget {
   const RegisterEmployeeScreen({super.key});
@@ -20,33 +21,51 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
 
   File? _image;
   bool _loading = false;
-
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 70,
-    );
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
 
-    if (picked != null) {
-      setState(() {
-        _image = File(picked.path);
-      });
+      if (picked != null) {
+        setState(() {
+          _image = File(picked.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to capture image: $e'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
   Future<String> _saveImageLocally(File image, String empId) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final empDir = Directory('${dir.path}/employees/$empId');
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final empDir = Directory('${dir.path}/employees/$empId');
 
-    if (!empDir.existsSync()) {
-      empDir.createSync(recursive: true);
+      if (!empDir.existsSync()) {
+        empDir.createSync(recursive: true);
+      }
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filePath = path.join(empDir.path, 'face_$timestamp.jpg');
+
+      await image.copy(filePath);
+      return filePath;
+    } catch (e) {
+      throw Exception('Failed to save image locally: $e');
     }
-
-    final filePath = path.join(empDir.path, 'face_1.jpg');
-
-    await image.copy(filePath);
-    return filePath;
   }
 
   Future<void> _submit() async {
@@ -67,23 +86,22 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
     setState(() => _loading = true);
 
     try {
-      // 1 Upload image
-      // final ref = FirebaseStorage.instance.ref(
-      //   'employees/${DateTime.now().millisecondsSinceEpoch}.jpg',
-      // );
-
-      // await ref.putFile(_image!);
-      // final imageUrl = await ref.getDownloadURL();
-
-      // 2 Save Firestore data
       final empRef = FirebaseFirestore.instance.collection('employees').doc();
 
-      final localPath = await _saveImageLocally(_image!, empRef.id);
+      // Upload to Cloudinary
+      final imageUrl = await CloudinaryService.uploadEmployeeImage(
+        image: _image!,
+        employeeId: empRef.id,
+      );
 
+      // Optional: Save locally as backup
+      await _saveImageLocally(_image!, empRef.id);
+
+      // Save Firestore data
       await empRef.set({
         'name': _nameController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'localFacePath': localPath,
+        'faceImageUrl': imageUrl,
         'faceCount': 1,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -91,40 +109,33 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Employee Registered Successfully'),
-              ],
-            ),
-            backgroundColor: Colors.green.shade600,
+            content: const Text('Employee registered successfully!'),
+            backgroundColor: Colors.green.shade700,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
           ),
         );
 
+        // Navigate back or clear form
         Navigator.pop(context);
       }
-    } catch (e) {
-      debugPrint('Error: $e');
+    } on SocketException {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Error: $e')),
-              ],
-            ),
-            backgroundColor: Colors.red.shade600,
+            content: const Text('No internet connection. Please try again.'),
+            backgroundColor: Colors.red.shade700,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error submitting employee: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to register employee: ${e.toString()}'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
