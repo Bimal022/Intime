@@ -1,9 +1,11 @@
+// screens/attendance_screen.dart
 import 'dart:io';
 import 'package:camera/camera.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:intl/intl.dart';
+import '../services/face_recognition.dart';
+import '../services/employee_face_service.dart';
+import '../services/attendance_service.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -23,17 +25,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   String? _errorMessage;
   int _faceCount = 0;
 
+  // Face recognition data
+  Map<String, dynamic>? _matchedEmployee;
+  File? _capturedImage;
+  Face? _detectedFace;
+
   @override
   void initState() {
     super.initState();
-    _initCamera();
-    _faceDetector = FaceDetector(
-      options: FaceDetectorOptions(
-        enableLandmarks: true,
-        enableContours: false,
-        enableClassification: true,
-      ),
-    );
+    _initializeServices();
+  }
+
+  Future<void> _initializeServices() async {
+    try {
+      // Initialize face recognition model
+      await FaceRecognitionService.initialize();
+
+      // Initialize camera
+      await _initCamera();
+
+      // Initialize face detector
+      _faceDetector = FaceDetector(
+        options: FaceDetectorOptions(
+          enableLandmarks: true,
+          enableContours: false,
+          enableClassification: true,
+        ),
+      );
+    } catch (e) {
+      setState(() => _errorMessage = 'Initialization failed: $e');
+    }
   }
 
   Future<void> _initCamera() async {
@@ -78,68 +99,209 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     setState(() => _isLoading = false);
   }
 
-  Future<void> _detectFace() async {
+  Future<void> _detectAndRecognizeFace() async {
     if (_detecting || _cameraController == null) return;
 
     setState(() {
       _detecting = true;
       _errorMessage = null;
+      _matchedEmployee = null;
     });
 
     try {
+      // Capture image
       final image = await _cameraController!.takePicture();
-      final inputImage = InputImage.fromFile(File(image.path));
+      _capturedImage = File(image.path);
+
+      // Detect faces
+      final inputImage = InputImage.fromFile(_capturedImage!);
       final faces = await _faceDetector!.processImage(inputImage);
 
-      setState(() {
-        _faceDetected = faces.isNotEmpty;
-        _faceCount = faces.length;
-        if (faces.isEmpty) {
+      setState(() => _faceCount = faces.length);
+
+      if (faces.isEmpty) {
+        setState(() {
+          _faceDetected = false;
           _errorMessage =
               'No face detected. Please position your face in the frame.';
-        } else if (faces.length > 1) {
+        });
+        return;
+      }
+
+      if (faces.length > 1) {
+        setState(() {
+          _faceDetected = false;
           _errorMessage =
               'Multiple faces detected. Please ensure only one person is in frame.';
-        }
+        });
+        return;
+      }
+
+      setState(() => _faceDetected = true);
+      _detectedFace = faces.first;
+
+      // Show processing indicator
+      _showProcessingDialog();
+
+      // Match face with employees
+      final matchResult = await EmployeeFaceService.matchFaceWithEmployees(
+        _capturedImage!,
+        _detectedFace!,
+      );
+
+      // Close processing dialog
+      if (mounted) Navigator.pop(context);
+
+      if (matchResult == null) {
+        setState(() {
+          _errorMessage = 'Face not recognized. Please register first.';
+          _faceDetected = false;
+        });
+        return;
+      }
+
+      // Check if already marked today
+      final alreadyMarked = await AttendanceService.hasMarkedToday(
+        matchResult['employeeId'],
+      );
+
+      if (alreadyMarked) {
+        setState(() {
+          _errorMessage =
+              '${matchResult['name']} has already marked attendance today.';
+          _faceDetected = false;
+        });
+        return;
+      }
+
+      setState(() {
+        _matchedEmployee = matchResult;
       });
+
+      // Show confirmation dialog
+      _showConfirmationDialog();
     } catch (e) {
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
       setState(() {
         _faceDetected = false;
-        _errorMessage = 'Detection failed: $e';
+        _errorMessage = 'Recognition failed: $e';
       });
     } finally {
       setState(() => _detecting = false);
     }
   }
 
-  Future<void> _markAttendance() async {
-    if (!_faceDetected || _faceCount != 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please detect exactly one face before marking attendance',
+  void _showProcessingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Recognizing face...'),
+                ],
+              ),
+            ),
           ),
-          backgroundColor: Colors.orange,
         ),
-      );
-      return;
-    }
+      ),
+    );
+  }
+
+  void _showConfirmationDialog() {
+    if (_matchedEmployee == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Attendance'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_matchedEmployee!['imageUrl'] != null &&
+                _matchedEmployee!['imageUrl'].isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  _matchedEmployee!['imageUrl'],
+                  height: 100,
+                  width: 100,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            const SizedBox(height: 16),
+            Text(
+              _matchedEmployee!['name'],
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Phone: ${_matchedEmployee!['phone']}',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Match: ${_matchedEmployee!['similarity'].toStringAsFixed(1)}%',
+                style: TextStyle(
+                  color: Colors.green[700],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _matchedEmployee = null;
+                _faceDetected = false;
+              });
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _markAttendance();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue[700],
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _markAttendance() async {
+    if (_matchedEmployee == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      const empId = "demo_emp"; // TEMP (will come from face match later)
-      final now = DateTime.now();
-      final date = DateFormat('yyyy-MM-dd').format(now);
-      final time = DateFormat('hh:mm a').format(now);
-
-      await FirebaseFirestore.instance.collection('attendance').doc(date).set({
-        empId: {
-          'time': time,
-          'timestamp': FieldValue.serverTimestamp(),
-          'status': 'present',
-        },
-      }, SetOptions(merge: true));
+      await AttendanceService.markAttendance(
+        employeeId: _matchedEmployee!['employeeId'],
+        employeeName: _matchedEmployee!['name'],
+        photoUrl: _matchedEmployee!['imageUrl'],
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -149,7 +311,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 const Icon(Icons.check_circle, color: Colors.white),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text('Attendance marked successfully at $time'),
+                  child: Text(
+                    'Attendance marked for ${_matchedEmployee!['name']}',
+                  ),
                 ),
               ],
             ),
@@ -161,19 +325,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         );
 
-        // Reset state after successful attendance
         setState(() {
           _faceDetected = false;
           _faceCount = 0;
+          _matchedEmployee = null;
         });
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to mark attendance: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -225,7 +386,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 setState(() => _errorMessage = null);
-                _initCamera();
+                _initializeServices();
               },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
@@ -241,7 +402,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       children: [
         Column(
           children: [
-            // Camera Preview with Overlay
+            // Camera Preview
             Expanded(
               child: Container(
                 color: Colors.black,
@@ -262,7 +423,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         height: 300,
                         decoration: BoxDecoration(
                           border: Border.all(
-                            color: _faceDetected ? Colors.green : Colors.white,
+                            color: _matchedEmployee != null
+                                ? Colors.green
+                                : _faceDetected
+                                ? Colors.blue
+                                : Colors.white,
                             width: 3,
                           ),
                           borderRadius: BorderRadius.circular(150),
@@ -286,7 +451,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                         ),
                       ),
 
-                    // Instructions overlay
+                    // Instructions
                     Positioned(
                       top: 16,
                       left: 16,
@@ -326,136 +491,50 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Status indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _faceDetected ? Colors.green[50] : Colors.red[50],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _faceDetected ? Colors.green : Colors.red,
-                        width: 2,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _faceDetected ? Icons.check_circle : Icons.cancel,
-                          color: _faceDetected ? Colors.green : Colors.red,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _faceDetected
-                              ? 'Face Detected ($_faceCount face${_faceCount > 1 ? 's' : ''})'
-                              : 'No Face Detected',
-                          style: TextStyle(
-                            color: _faceDetected
-                                ? Colors.green[900]
-                                : Colors.red[900],
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  if (_matchedEmployee != null)
+                    _buildMatchedEmployeeCard()
+                  else
+                    _buildStatusIndicator(),
 
                   if (_errorMessage != null && _cameraController != null) ...[
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.warning_amber,
-                            color: Colors.orange[700],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                color: Colors.orange[900],
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _buildErrorMessage(),
                   ],
 
                   const SizedBox(height: 20),
 
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _detecting || _isLoading
-                              ? null
-                              : _detectFace,
-                          icon: _detecting
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.face_retouching_natural),
-                          label: Text(
-                            _detecting ? 'Detecting...' : 'Detect Face',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            side: BorderSide(
-                              color: Colors.blue[700]!,
-                              width: 2,
-                            ),
-                            foregroundColor: Colors.blue[700],
-                          ),
-                        ),
+                  // Action button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _detecting || _isLoading
+                          ? null
+                          : _detectAndRecognizeFace,
+                      icon: _detecting || _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.face_retouching_natural),
+                      label: Text(
+                        _detecting
+                            ? 'Detecting...'
+                            : _isLoading
+                            ? 'Processing...'
+                            : 'Scan Face',
+                        style: const TextStyle(fontSize: 16),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed:
-                              _faceDetected && !_isLoading && _faceCount == 1
-                              ? _markAttendance
-                              : null,
-                          icon: _isLoading
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.check),
-                          label: Text(
-                            _isLoading ? 'Marking...' : 'Mark Attendance',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            backgroundColor: Colors.blue[700],
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: Colors.grey[300],
-                          ),
-                        ),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.blue[700],
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey[300],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -463,6 +542,97 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildStatusIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: _faceDetected ? Colors.blue[50] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _faceDetected ? Colors.blue : Colors.grey,
+          width: 2,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            _faceDetected ? Icons.check_circle : Icons.face,
+            color: _faceDetected ? Colors.blue : Colors.grey,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            _faceDetected ? 'Face Detected ($_faceCount)' : 'Ready to Scan',
+            style: TextStyle(
+              color: _faceDetected ? Colors.blue[900] : Colors.grey[700],
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMatchedEmployeeCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green, width: 2),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 32),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _matchedEmployee!['name'],
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Match: ${_matchedEmployee!['similarity'].toStringAsFixed(1)}%',
+                  style: TextStyle(color: Colors.green[700], fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.orange),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber, color: Colors.orange[700], size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _errorMessage!,
+              style: TextStyle(color: Colors.orange[900], fontSize: 13),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
