@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intime/screens/attendance.dart';
-import 'package:intime/screens/employee_list.dart';
 import 'package:intime/screens/register_employee.dart';
-import 'package:intime/screens/report.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -27,14 +25,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       setState(() => _isLoading = true);
 
-      // Get total employees count
       final employeesSnapshot = await FirebaseFirestore.instance
           .collection('employees')
           .get();
 
       final totalEmployees = employeesSnapshot.docs.length;
 
-      // Get today's attendance count
       final now = DateTime.now();
       final todayStart = DateTime(now.year, now.month, now.day);
       final todayEnd = todayStart.add(const Duration(days: 1));
@@ -45,11 +41,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           .where('timestamp', isLessThan: todayEnd)
           .get();
 
-      // Count unique employees who attended today
       final uniqueEmployees = <String>{};
       for (var doc in attendanceSnapshot.docs) {
-        final data = doc.data();
-        final employeeId = data['employeeId'];
+        final employeeId = doc.data()['employeeId'];
         if (employeeId != null) {
           uniqueEmployees.add(employeeId.toString());
         }
@@ -61,240 +55,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error loading dashboard data: $e');
       setState(() => _isLoading = false);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading dashboard data: $e'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      debugPrint('Dashboard error: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.indigo.shade50, Colors.white],
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.indigo.shade50, Colors.white],
         ),
-        child: SafeArea(
-          child: RefreshIndicator(
-            onRefresh: _loadDashboardData,
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Intime',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.indigo,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Attendance Management',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.indigo.withOpacity(0.1),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.notifications_outlined,
-                            color: Colors.indigo.shade700,
-                            size: 24,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // Dashboard Cards
-                    Row(
-                      children: [
-                        _dashboardCard(
-                          icon: Icons.people_outline,
-                          title: 'Total Employees',
-                          value: _isLoading ? '—' : _totalEmployees.toString(),
-                          color: Colors.indigo,
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.indigo.shade400,
-                              Colors.indigo.shade600,
-                            ],
-                          ),
-                          isLoading: _isLoading,
-                        ),
-                        const SizedBox(width: 16),
-                        _dashboardCard(
-                          icon: Icons.check_circle_outline,
-                          title: 'Present Today',
-                          value: _isLoading ? '—' : _presentToday.toString(),
-                          color: Colors.teal,
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.teal.shade400,
-                              Colors.teal.shade600,
-                            ],
-                          ),
-                          isLoading: _isLoading,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // Quick Actions Section
-                    Row(
-                      children: [
-                        Container(
-                          width: 4,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: Colors.indigo,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Action Cards
-                    _actionCard(
-                      context: context,
-                      icon: Icons.camera_alt_outlined,
-                      title: 'Mark Attendance',
-                      subtitle: 'Capture employee attendance',
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.indigo.shade400,
-                          Colors.indigo.shade600,
-                        ],
-                      ),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const AttendanceScreen(),
-                          ),
-                        );
-                        // Refresh data when coming back
-                        _loadDashboardData();
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _actionCard(
-                      context: context,
-                      icon: Icons.person_add_outlined,
-                      title: 'Register Employee',
-                      subtitle: 'Add new employee to system',
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.purple.shade400,
-                          Colors.purple.shade600,
-                        ],
-                      ),
-                      onTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterEmployeeScreen(),
-                          ),
-                        );
-                        // Refresh data when coming back
-                        _loadDashboardData();
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _actionCard(
-                      context: context,
-                      icon: Icons.group_outlined,
-                      title: 'Manage Employees',
-                      subtitle: 'View and edit employee details',
-                      gradient: LinearGradient(
-                        colors: [Colors.green.shade400, Colors.green.shade600],
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const EmployeesListPage(),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _actionCard(
-                      context: context,
-                      icon: Icons.assessment_outlined,
-                      title: 'View Reports',
-                      subtitle: 'Check attendance analytics',
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.orange.shade400,
-                          Colors.orange.shade600,
-                        ],
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const ReportsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
+      ),
+      child: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _loadDashboardData,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _header(),
+                const SizedBox(height: 28),
+                _statsRow(),
+                const SizedBox(height: 28),
+                _attendanceProgress(),
+                const SizedBox(height: 32),
+                _primaryActions(),
+              ],
             ),
           ),
         ),
@@ -302,157 +94,228 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _dashboardCard({
-    required IconData icon,
+  // ---------------- HEADER ----------------
+
+  Widget _header() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Good ${DateTime.now().hour < 12 ? "Morning" : "Evening"} 👋',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Dashboard',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: Colors.indigo.shade50,
+          child: Icon(Icons.notifications_none, color: Colors.indigo.shade700),
+        ),
+      ],
+    );
+  }
+
+  // ---------------- STATS ----------------
+
+  Widget _statsRow() {
+    return Row(
+      children: [
+        _statCard(
+          title: 'Total Employees',
+          value: _isLoading ? '—' : _totalEmployees.toString(),
+          icon: Icons.people_outline,
+          gradient: LinearGradient(
+            colors: [Colors.indigo.shade400, Colors.indigo.shade600],
+          ),
+        ),
+        const SizedBox(width: 16),
+        _statCard(
+          title: 'Present Today',
+          value: _isLoading ? '—' : _presentToday.toString(),
+          icon: Icons.check_circle_outline,
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade400, Colors.teal.shade600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statCard({
     required String title,
     required String value,
-    required Color color,
+    required IconData icon,
     required Gradient gradient,
-    required bool isLoading,
   }) {
     return Expanded(
       child: Container(
-        height: 160,
+        height: 140,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           gradient: gradient,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.3),
-              blurRadius: 12,
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 10,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 28, color: Colors.white),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  isLoading
-                      ? SizedBox(
-                          height: 28,
-                          width: 40,
-                          child: Center(
-                            child: SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white.withOpacity(0.8),
-                                ),
-                              ),
-                            ),
-                          ),
-                        )
-                      : Text(
-                          value,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.9),
-                      fontWeight: FontWeight.w500,
-                    ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Icon(icon, color: Colors.white, size: 28),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.white.withOpacity(0.9),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _actionCard({
-    required BuildContext context,
+  // ---------------- PROGRESS ----------------
+
+  Widget _attendanceProgress() {
+    final double progress = _totalEmployees == 0 ? 0 : _presentToday / _totalEmployees;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Today’s Attendance',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: LinearProgressIndicator(
+            minHeight: 10,
+            value: progress,
+            backgroundColor: Colors.grey.shade200,
+            valueColor: const AlwaysStoppedAnimation(Colors.indigo),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '$_presentToday of $_totalEmployees employees present',
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+      ],
+    );
+  }
+
+  // ---------------- ACTIONS ----------------
+
+  Widget _primaryActions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Primary Actions',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _actionTile(
+                icon: Icons.camera_alt,
+                title: 'Mark Attendance',
+                color: Colors.indigo,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+                  );
+                  _loadDashboardData();
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _actionTile(
+                icon: Icons.person_add,
+                title: 'Add Employee',
+                color: Colors.purple,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RegisterEmployeeScreen(),
+                    ),
+                  );
+                  _loadDashboardData();
+                },
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _actionTile({
     required IconData icon,
     required String title,
-    required String subtitle,
-    required Gradient gradient,
+    required Color color,
     required VoidCallback onTap,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    gradient: gradient,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 26),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey.shade400,
-                ),
-              ],
+        ),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: color,
+              child: Icon(icon, color: Colors.white),
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
