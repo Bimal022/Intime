@@ -6,6 +6,13 @@ import 'selfie_capture_screen.dart';
 class ManualAttendanceScreen extends StatelessWidget {
   const ManualAttendanceScreen({super.key});
 
+  String _todayDocId(String empId) {
+    final today = DateTime.now();
+    final date =
+        "${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}";
+    return "${empId}_$date";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -28,27 +35,49 @@ class ManualAttendanceScreen extends StatelessWidget {
             itemCount: employees.length,
             itemBuilder: (context, index) {
               final emp = employees[index];
-              return Card(
-                margin: const EdgeInsets.all(8),
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: NetworkImage(emp.faceImageUrl),
-                  ),
-                  title: Text(emp.name),
-                  subtitle: Text(emp.phone),
-                  trailing: ElevatedButton(
-                    child: const Text("Attendance"),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              SelfieCaptureScreen(employee: emp),
+              final attendanceDocId = _todayDocId(emp.id);
+
+              return StreamBuilder<DocumentSnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('attendance')
+                    .doc(attendanceDocId)
+                    .snapshots(),
+                builder: (context, attSnap) {
+                  final data =
+                      attSnap.data?.data() as Map<String, dynamic>?;
+
+                  final bool isClockedIn =
+                      data != null && data['clockInTime'] != null;
+
+                  return Card(
+                    margin: const EdgeInsets.all(8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundImage: NetworkImage(emp.faceImageUrl),
+                      ),
+                      title: Text(emp.name),
+                      subtitle: Text(emp.phone),
+                      trailing: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              isClockedIn ? Colors.red : Colors.green,
                         ),
-                      );
-                    },
-                  ),
-                ),
+                        child: Text(isClockedIn ? "Clock Out" : "Clock In"),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SelfieCaptureScreen(
+                                employee: emp,
+                                isClockIn: !isClockedIn,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
               );
             },
           );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intime/screens/attendance_face_recognition.dart';
+import 'package:intime/screens/attendance_manual.dart';
 import 'package:intime/screens/register_employee.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -258,7 +259,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const AttendanceScreen()),
+                    MaterialPageRoute(builder: (_) => const ManualAttendanceScreen()),
                   );
                   _loadDashboardData();
                 },

@@ -108,7 +108,6 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
       // Update progress
       if (mounted) {
         Navigator.pop(context);
-        _showProgressDialog('Generating face embedding...');
       }
 
       // Save Firestore data first (without embedding)
@@ -120,18 +119,8 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // Generate and store face embedding
-      final embeddingGenerated = await EmployeeFaceService.generateAndStoreEmbedding(
-        employeeId: empRef.id,
-        imageUrl: imageUrl,
-      );
-
       // Close progress dialog
       if (mounted) Navigator.pop(context);
-
-      if (!embeddingGenerated) {
-        throw Exception('Failed to generate face embedding. Please try again.');
-      }
 
       // Optional: Save locally as backup
       await _saveImageLocally(_image!, empRef.id);
@@ -242,10 +231,7 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.grey.shade300,
-                      width: 2,
-                    ),
+                    border: Border.all(color: Colors.grey.shade300, width: 2),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.05),
@@ -275,10 +261,7 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
                         )
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(14),
-                          child: Image.file(
-                            _image!,
-                            fit: BoxFit.cover,
-                          ),
+                          child: Image.file(_image!, fit: BoxFit.cover),
                         ),
                 ),
               ),
@@ -305,7 +288,10 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.purple.shade700, width: 2),
+                    borderSide: BorderSide(
+                      color: Colors.purple.shade700,
+                      width: 2,
+                    ),
                   ),
                 ),
                 validator: (value) {
@@ -339,7 +325,10 @@ class _RegisterEmployeeScreenState extends State<RegisterEmployeeScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.purple.shade700, width: 2),
+                    borderSide: BorderSide(
+                      color: Colors.purple.shade700,
+                      width: 2,
+                    ),
                   ),
                 ),
                 validator: (value) {
