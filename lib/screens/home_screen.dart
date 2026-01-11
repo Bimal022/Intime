@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:intime/screens/attendance_manual.dart';
 import 'package:intime/screens/dashboard.dart';
 import 'package:intime/screens/attendance_face_recognition.dart';
 import 'package:intime/screens/employee_list.dart';
@@ -17,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    AttendanceScreen(),
+    ManualAttendanceScreen(),
     EmployeesListPage(),
     ReportsScreen(),
   ];
